@@ -33,7 +33,7 @@ final class GoldenTest extends TestCase
      */
     public static function cases(): array
     {
-        return ['the canonical spec' => ['valid'], 'the worked example' => ['clog'], 'a pattern-generated interface and trait' => ['patterns'], 'a required to-one edge' => ['edge-required']];
+        return ['the canonical spec' => ['valid'], 'the worked example' => ['clog'], 'a pattern-generated interface and trait' => ['patterns'], 'a required to-one edge' => ['edge-required'], 'runtime creation and verification contracts' => ['runtime-contracts']];
     }
 
     #[DataProvider('cases')]

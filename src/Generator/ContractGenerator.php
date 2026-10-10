@@ -367,7 +367,7 @@ final readonly class ContractGenerator
             $interface->addComment('violations from both tiers arrive together.');
 
             $method = $interface->addMethod('verify')->setPublic()->setReturnType(Runtime::VERIFICATION);
-            $method->addParameter('value')->setType($valueType);
+            $method->addParameter('value')->setType($valueType)->setNullable($field->nullable);
             $method->addParameter('context')->setType($context);
 
             $files[] = $this->emitter->file($name, $namespace);

@@ -114,6 +114,17 @@ foreach (['int', 'float', 'bool', 'json', 'id'] as $primitive) {
 $scalars['schema']['types']['PostStatus']['primitive'] = 'int';
 $cases['primitive conversions and integer enums'] = $scalars;
 
+$enumAction = $base;
+$enumAction['schema']['entities']['Post']['actions']['publish']['arguments']['at']['type'] = ['primitive' => null, 'declaredType' => 'PostStatus'];
+$cases['declared enum action arguments'] = $enumAction;
+
+$processor = json_decode(file_get_contents($root . '/tests/fixtures/golden/runtime-contracts/request.json'), true, 512, JSON_THROW_ON_ERROR);
+$processor['schema']['types']['Amount']['primitive'] = 'datetime';
+$processor['schema']['entities']['Page']['fields']['amount']['default'] = '2026-10-10T00:00:00Z';
+$processor['schema']['entities']['Page']['actions']['publish'] = $base['schema']['entities']['Post']['actions']['publish'];
+$processor['schema']['entities']['Page']['actions']['publish']['arguments']['at']['type'] = ['primitive' => null, 'declaredType' => 'Amount'];
+$cases['datetime processor fields and action arguments'] = $processor;
+
 $edges = $base;
 $edges['schema']['entities']['Post']['edges']['related'] = [
     'name' => 'related', 'to' => 'Post', 'cardinality' => 'many',

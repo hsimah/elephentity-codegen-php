@@ -87,7 +87,7 @@ impl Gen<'_> {
             out.comment(&format!("Entity-specific rules for {en}::{}.\n\nRuns before the type processor, and both run even when this fails, so\nviolations from both tiers arrive together.",s(&f["name"])));
             out.add(
                 declaration("verify", &ret)
-                    .parameter(param("value", &ty, false))
+                    .parameter(param("value", &ty, b(&f["nullable"])))
                     .parameter(param("context", &ctx, false)),
             );
             files.push(out.file(&self.root));

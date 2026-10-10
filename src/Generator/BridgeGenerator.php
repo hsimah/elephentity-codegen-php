@@ -236,7 +236,7 @@ final readonly class BridgeGenerator
                 ->setReturnType(Runtime::VERIFICATION)
                 ->setBody(sprintf(
                     "assert(%s);\n\nreturn \$this->%sVerifier->verify(\$value, %s::of(\$context));",
-                    $this->assertion($valueType),
+                    ($field->nullable ? 'null === $value || ' : '') . $this->assertion($valueType),
                     $name,
                     $this->emitter->shortName($context),
                 ));

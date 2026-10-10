@@ -35,7 +35,16 @@ impl Gen<'_> {
                 format!(
                     "$this->{}Reader->read({})",
                     low(n),
-                    decode_primitive(backing, ty, value, label)
+                    decode_primitive(
+                        if matches!(backing, "json" | "datetime") {
+                            "string"
+                        } else {
+                            backing
+                        },
+                        ty,
+                        value,
+                        label
+                    )
                 )
             } else {
                 decode_primitive(backing, ty, value, label)
@@ -98,6 +107,34 @@ impl Gen<'_> {
             let label = quote(&format!("{en}.{n}"));
             let conversion = self.decode(&f["type"], &ty, "$value", &label);
             let body = if input {
+                if b(&f["hasDefault"]) {
+                    let value = if f["default"].is_null() {
+                        "null".into()
+                    } else if f["type"]["primitive"] == "json"
+                        || self.schema["types"][s(&f["type"]["declaredType"])]["primitive"]
+                            == "json"
+                    {
+                        quote(&serde_json::to_string(&f["default"]).unwrap())
+                    } else if let Some(label) = f["default"].as_str().filter(|_| {
+                        !f["enum"].is_null()
+                            || !self.schema["types"][s(&f["type"]["declaredType"])]["values"]
+                                .is_null()
+                    }) {
+                        let case = label
+                            .replace('_', " ")
+                            .split_whitespace()
+                            .map(cap)
+                            .collect::<String>();
+                        format!("{ty}::{case}")
+                    } else {
+                        php_value(&f["default"])
+                    };
+                    lines.extend([
+                        format!("if (!$buffer->target()->isPersisted() && !$buffer->isChanged({}) && !array_key_exists({}, $input)) {{", quote(n), quote(n)),
+                        format!("    $buffer->set({}, $this->{n}({value}));", quote(n)),
+                        "}".into(), "".into(),
+                    ]);
+                }
                 lines.extend([
                     format!("if (array_key_exists({}, $input)) {{", quote(n)),
                     format!(
@@ -158,7 +195,7 @@ impl Gen<'_> {
                         .document(doc("@return list<Identifier>")),
                 );
             }
-            out.add(method("apply","void",lines.join("\n").trim_end()).parameter(param("buffer","MutationBuffer",false)).parameter(param("input","array",false)).document(doc("Only what the caller supplied. A key that is absent is left alone,\nwhich is what makes a partial update partial.\n\n@param array<string, mixed> $input")));
+            out.add(method("apply","void",lines.join("\n").trim_end()).parameter(param("buffer","MutationBuffer",false)).parameter(param("input","array",false)).document(doc("Seeds declared defaults on create and applies explicit input.\nAbsent update keys and existing pending values are not reset by defaults.\n\n@param array<string, mixed> $input")));
             let mut arms = vec![];
             for a in vals(&e["actions"]) {
                 let an = s(&a["name"]);
@@ -407,11 +444,14 @@ impl Gen<'_> {
         for f in verified {
             let n = s(&f["name"]);
             let ty = out.import(&self.field_type(e, f)?);
-            let check = if scalar(&ty) {
+            let mut check = if scalar(&ty) {
                 format!("is_{ty}($value)")
             } else {
                 format!("$value instanceof {ty}")
             };
+            if b(&f["nullable"]) {
+                check = format!("null === $value || {check}");
+            }
             out.add(method(&format!("verify{}",cap(n)),"Verification",&format!("assert({check});\n\nreturn $this->{n}Verifier->verify($value, {context}::of($context));")).private().parameter(param("value","mixed",false)).parameter(param("context","MutationContext",false)));
         }
         files.push(out.file(&self.root));
@@ -496,6 +536,27 @@ fn decode_primitive(p: &str, ty: &str, value: &str, label: &str) -> String {
                 p
             }
         )
+    }
+}
+
+fn php_value(value: &Value) -> String {
+    match value {
+        Value::Null => "null".into(),
+        Value::Bool(v) => v.to_string(),
+        Value::Number(v) => v.to_string(),
+        Value::String(v) => quote(v),
+        Value::Array(values) => format!(
+            "[{}]",
+            values.iter().map(php_value).collect::<Vec<_>>().join(", ")
+        ),
+        Value::Object(values) => format!(
+            "[{}]",
+            values
+                .iter()
+                .map(|(k, v)| format!("{} => {}", quote(k), php_value(v)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
     }
 }
 
