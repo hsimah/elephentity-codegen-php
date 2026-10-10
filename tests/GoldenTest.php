@@ -46,6 +46,12 @@ final class GoldenTest extends TestCase
         self::assertSame(0, $result['exit'], $result['stderr']);
         self::assertSame('', $result['stderr'], 'Nothing but the response may be written.');
 
+        /** @var array{files: list<array{path: string, body: string}>, errors: list<mixed>} $response */
+        $response = json_decode($result['stdout'], true, 512, JSON_THROW_ON_ERROR);
+        foreach ($response['files'] as $file) {
+            self::assertDoesNotMatchRegularExpression('/[ \t]+$/m', $file['body'], $file['path']);
+        }
+
         // Compared as decoded structures so the diff PHPUnit prints names the file that
         // moved, rather than reporting one 58KB string differing from another.
         self::assertSame(

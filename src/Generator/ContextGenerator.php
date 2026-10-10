@@ -13,6 +13,7 @@ use Eleph\Gen\Php\Naming\Emitter;
 use Eleph\Gen\Php\Naming\Names;
 use Eleph\Gen\Php\Naming\TypeMapper;
 use Eleph\Gen\Php\Runtime;
+use LogicException;
 use Nette\PhpGenerator\ClassType;
 
 /**
@@ -60,6 +61,16 @@ final readonly class ContextGenerator
                 ->setType(Runtime::MUTATION_BUFFER)
                 ->setPrivate()
                 ->setReadOnly();
+
+            $namespace->addUse(Runtime::MUTATION_CONTEXT);
+            $namespace->addUse($this->names->mutationContext($entity));
+            $namespace->addUse(LogicException::class);
+            $type->addMethod('context')->setReturnType($this->names->mutationContext($entity))
+                ->addComment("Read original and pending state without widening the action's writes.")
+                ->setBody(sprintf(
+                    "if (!\$this->buffer instanceof MutationContext) {\n    throw new LogicException('Action buffer must expose mutation state.');\n}\n\nreturn %s::of(\$this->buffer);",
+                    $this->emitter->shortName($this->names->mutationContext($entity)),
+                ));
 
             foreach ($action->writes->fields as $name) {
                 $field = $entity->field($name);

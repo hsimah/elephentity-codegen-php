@@ -418,7 +418,33 @@
             }
           }
         },
-        "actions": {},
+        "actions": {
+          "publish": {
+            "name": "publish",
+            "writes": {
+              "fields": [
+                "status",
+                "publishedAt"
+              ],
+              "edges": []
+            },
+            "origin": {
+              "pattern": null,
+              "file": "runtime-contracts.yml"
+            },
+            "arguments": {
+              "at": {
+                "name": "at",
+                "type": {
+                  "primitive": "datetime",
+                  "declaredType": null
+                },
+                "nullable": false
+              }
+            },
+            "description": null
+          }
+        },
         "sideEffects": {},
         "config": {},
         "integrations": {
