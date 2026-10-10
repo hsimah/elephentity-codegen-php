@@ -88,6 +88,23 @@ final readonly class InputGenerator
                 $namespace->addUse($phpType);
             }
 
+            if ($field->hasDefault) {
+                $declared = $this->schema->type((string) $field->type->declaredType);
+                $default = null === $field->default ? 'null' : var_export($field->default, true);
+                if (Primitive::Json === ($field->type->primitive ?? $declared?->primitive) && null !== $field->default) {
+                    $default = var_export(json_encode($field->default, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), true);
+                }
+                if (is_string($field->default) && (null !== $field->enum || (null !== $declared && $declared->isEnum()))) {
+                    $case = str_replace(' ', '', ucwords(str_replace('_', ' ', $field->default)));
+                    $default = $this->emitter->shortName($phpType) . '::' . $case;
+                }
+                $key = var_export($field->name, true);
+                $lines[] = sprintf('if (!$buffer->target()->isPersisted() && !$buffer->isChanged(%s) && !array_key_exists(%s, $input)) {', $key, $key);
+                $lines[] = sprintf('    $buffer->set(%s, $this->%s(%s));', $key, $field->name, $default);
+                $lines[] = '}';
+                $lines[] = '';
+            }
+
             $lines[] = sprintf('if (array_key_exists(%s, $input)) {', var_export($field->name, true));
             $lines[] = sprintf('    $buffer->set(%s, $this->%s($input[%s]));', var_export($field->name, true), $field->name, var_export($field->name, true));
             $lines[] = '}';
@@ -124,8 +141,8 @@ final readonly class InputGenerator
         $apply = $type->addMethod('apply')
             ->setReturnType('void')
             ->setBody([] === $lines ? '' : rtrim(implode("\n", $lines)))
-            ->addComment('Only what the caller supplied. A key that is absent is left alone,')
-            ->addComment('which is what makes a partial update partial.')
+            ->addComment('Seeds declared defaults on create and applies explicit input.')
+            ->addComment('Absent update keys and existing pending values are not reset by defaults.')
             ->addComment('')
             ->addComment('@param array<string, mixed> $input');
 
@@ -190,8 +207,16 @@ final readonly class InputGenerator
 
         if (null === $primitive) {
             $typeName = (string) $field->type->declaredType;
-            $backing = $this->schema->type($typeName)->primitive ?? Primitive::String;
+            $declared = $this->schema->type($typeName);
+            $backing = $declared->primitive ?? Primitive::String;
+            if (null !== $declared && $declared->isEnum()) {
+                return sprintf("if (null === \$value) {\n    return null;\n}\n\nreturn %s;", $this->decode(Primitive::Enum, $label, $phpType));
+            }
+            if (null === $declared || !$declared->hasProcessors) {
+                return sprintf("if (null === \$value) {\n    return null;\n}\n\nreturn %s;", $this->decode($backing, $label, $phpType));
+            }
 
+            $backing = in_array($backing, [Primitive::Json, Primitive::Datetime], true) ? Primitive::String : $backing;
             return sprintf(
                 "if (null === \$value) {\n    return null;\n}\n\nreturn \$this->%sReader->read(%s);",
                 lcfirst($typeName),
@@ -274,7 +299,11 @@ final readonly class InputGenerator
         } else {
             $declared = $this->schema->type((string) $argument->type->declaredType);
             $primitive = $declared->primitive ?? Primitive::String;
-            $decoded = sprintf('$this->%sReader->read(%s)', lcfirst((string) $argument->type->declaredType), $this->decode($primitive, $label, $phpType, $variable));
+            $decoded = $this->decode(null !== $declared && $declared->isEnum() ? Primitive::Enum : $primitive, $label, $phpType, $variable);
+            if (null !== $declared && !$declared->isEnum() && $declared->hasProcessors) {
+                $primitive = in_array($primitive, [Primitive::Json, Primitive::Datetime], true) ? Primitive::String : $primitive;
+                $decoded = sprintf('$this->%sReader->read(%s)', lcfirst((string) $argument->type->declaredType), $this->decode($primitive, $label, $phpType, $variable));
+            }
         }
 
         return $argument->nullable

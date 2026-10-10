@@ -90,3 +90,7 @@ builders retain their original output bytes.
 
 Regenerate generated PHP once after upgrading, and commit the changed signed files.
 The signer itself is unchanged; formatting changes naturally produce new digests.
+
+PHP builder 0.7 targets runtime 0.13. Regenerate when upgrading: catalogues include nonnullable field metadata, and nullable verifier interfaces now accept nullable values. Implementations must widen those parameters. Create inputs seed defaults through their normal decoders; explicit values and pending action writes take precedence, while partial updates leave absent fields alone. Generated defaults and verification are exercised through Memory, SQLite and GraphQL in CI.
+
+Declared JSON/datetime processors receive stored strings, as their generated scalar contracts promise; ordinary JSON/datetime fields still decode to arrays/date objects. Implementations that relied on the previous premature primitive decoding must update their read processors.

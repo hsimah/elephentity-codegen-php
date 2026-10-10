@@ -140,7 +140,14 @@ final readonly class HydratorGenerator
             $typeName = (string) $field->type->declaredType;
             $declared = $this->schema->type($typeName);
             $backing = $declared->primitive ?? Primitive::String;
+            if (null !== $declared && $declared->isEnum()) {
+                return $this->decode(Primitive::Enum, $value, $label, $phpType);
+            }
+            if (null === $declared || !$declared->hasProcessors) {
+                return $this->decode($backing, $value, $label, $phpType);
+            }
 
+            $backing = in_array($backing, [Primitive::Json, Primitive::Datetime], true) ? Primitive::String : $backing;
             return sprintf(
                 '$this->%sReader->read(%s)',
                 lcfirst($typeName),

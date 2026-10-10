@@ -225,7 +225,7 @@ final class PhpTargetTest extends TestCase
     public function testAFieldVerifierIsTypedToBothTheEntityAndTheFieldType(): void
     {
         self::assertStringContainsString(
-            'public function verify(Money $value, PostMutationContext $context): Verification;',
+            'public function verify(?Money $value, PostMutationContext $context): Verification;',
             $this->file('Post/Contract/PostPriceVerifier.php'),
         );
     }
@@ -273,7 +273,7 @@ final class PhpTargetTest extends TestCase
 
         self::assertStringContainsString('implements EntityVerifiers', $bridge);
         self::assertStringContainsString("return ['price'];", $bridge);
-        self::assertStringContainsString('assert($value instanceof Money);', $bridge);
+        self::assertStringContainsString('assert(null === $value || $value instanceof Money);', $bridge);
         self::assertStringContainsString(
             'return $this->priceVerifier->verify($value, PostMutationContext::of($context));',
             $bridge,

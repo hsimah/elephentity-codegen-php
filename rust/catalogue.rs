@@ -167,6 +167,7 @@ impl Gen<'_> {
         for n in [
             "fieldNames",
             "requiredFields",
+            "nonNullableFields",
             "requiredEdges",
             "uniqueFields",
         ] {
@@ -185,6 +186,7 @@ impl Gen<'_> {
                         "requiredFields" => {
                             b(&f["required"]) && !b(&f["hasDefault"]) && f["managed"].is_null()
                         }
+                        "nonNullableFields" => !b(&f["nullable"]),
                         "requiredEdges" => b(&f["required"]),
                         "uniqueFields" => b(&f["unique"]),
                         _ => true,

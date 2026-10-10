@@ -78,6 +78,7 @@ final readonly class CatalogueGenerator
 
         $this->addPerEntityList($type, 'fieldNames', $this->fieldNames());
         $this->addPerEntityList($type, 'requiredFields', $this->requiredFields());
+        $this->addPerEntityList($type, 'nonNullableFields', $this->nonNullableFields());
         $this->addPerEntityList($type, 'requiredEdges', $this->requiredEdges());
         $this->addPerEntityList($type, 'uniqueFields', $this->uniqueFields());
         $this->addManagedFields($type, $namespace);
@@ -188,10 +189,25 @@ final readonly class CatalogueGenerator
         return $names;
     }
 
+    /** @return array<string, list<string>> */
+    private function nonNullableFields(): array
+    {
+        $fields = [];
+        foreach ($this->schema->entities as $entity) {
+            $fields[$entity->name] = [];
+            foreach ($entity->fields as $field) {
+                if (!$field->nullable) {
+                    $fields[$entity->name][] = $field->name;
+                }
+            }
+        }
+        return $fields;
+    }
+
     /**
      * Fields a create must supply.
      *
-     * A field with a default is left out: the column already answers for it, and
+     * A field with a default is left out: generated input seeds it on create, and
      * demanding one anyway would make `default:` unusable. Managed fields are left out
      * too — the framework stamps them before this is consulted.
      *
