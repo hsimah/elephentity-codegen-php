@@ -153,7 +153,7 @@ impl Gen<'_> {
                     &t["values"],
                     s(&t["primitive"]) == "int",
                     t["description"].as_str(),
-                ));
+                )?);
             }
             if !b(&t["hasProcessors"]) {
                 continue;
@@ -203,7 +203,7 @@ impl Gen<'_> {
                         &f["enum"]["inlineValues"],
                         false,
                         Some(&format!("Values of {en}::{n}.")),
-                    ));
+                    )?);
                 }
             }
         }
@@ -287,7 +287,13 @@ impl Gen<'_> {
         }
         Ok(files)
     }
-    fn enumeration(&self, name: &str, values: &Value, int: bool, comment: Option<&str>) -> Value {
+    fn enumeration(
+        &self,
+        name: &str,
+        values: &Value,
+        int: bool,
+        comment: Option<&str>,
+    ) -> Result<Value> {
         use php_codegen::{
             enum_case::EnumCase,
             r#enum::{Enum, EnumBackingType},
@@ -302,12 +308,19 @@ impl Gen<'_> {
         if let Some(d) = comment {
             e.documentation = Some(doc(d));
         }
+        let mut names = std::collections::BTreeMap::new();
         for (i, v) in list(values).iter().enumerate() {
             let case = s(v)
                 .replace('_', " ")
                 .split_whitespace()
                 .map(cap)
                 .collect::<String>();
+            if let Some(previous) = names.insert(case.clone(), s(v)) {
+                return Err(format!(
+                    "PHP enum {name}: labels {previous:?} and {:?} both generate case {case:?}.",
+                    s(v)
+                ));
+            }
             let mut c = EnumCase::new(case);
             c.value = Some(if int {
                 php_codegen::literal::Value::Integer(i as i64)
@@ -316,6 +329,8 @@ impl Gen<'_> {
             });
             e.cases.push(c);
         }
-        json!({"path":format!("Enum/{name}.php"),"body":format!("namespace {}\\Enum;\n\n{}",self.root,e.generate(Indentation::default(),0))})
+        Ok(
+            json!({"path":format!("Enum/{name}.php"),"body":format!("namespace {}\\Enum;\n\n{}",self.root,e.generate(Indentation::default(),0))}),
+        )
     }
 }

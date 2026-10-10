@@ -210,7 +210,10 @@ fn run(v: &Value) -> Result<Value> {
         root: s(&v["config"]["namespace"]).trim_matches('\\').into(),
         types: s(&v["config"]["typeNamespace"]).trim_matches('\\').into(),
     };
-    let mut files = g.shared()?;
+    let mut files = match g.shared() {
+        Ok(files) => files,
+        Err(error) => return Ok(response(vec![], vec![error])),
+    };
     for e in vals(&schema["entities"]) {
         files.push(g.hydrate_input(e, false)?);
         files.push(g.hydrate_input(e, true)?);
