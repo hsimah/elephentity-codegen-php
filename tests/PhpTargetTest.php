@@ -216,6 +216,8 @@ final class PhpTargetTest extends TestCase
         self::assertStringContainsString('public function setStatus(PostStatus $status)', $context);
         self::assertStringContainsString('public function comments(): EdgeMutation', $context);
 
+        self::assertStringContainsString('public function context(): PostMutationContext', $context);
+
         // Everything else the entity has must be absent.
         self::assertStringNotContainsString('setTitle', $context);
         self::assertStringNotContainsString('setPrice', $context);

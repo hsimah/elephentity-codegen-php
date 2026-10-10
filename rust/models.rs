@@ -224,6 +224,10 @@ impl Gen<'_> {
             ));
             let ty = out.import(MUTATION_BUFFER);
             out.add(method("__construct", "", "").parameter(promoted("buffer", &ty, true)));
+            let read = out.import(MUTATION_CONTEXT);
+            let context = out.import(&self.name(e, "MutationContext"));
+            let error = out.import("LogicException");
+            out.add(method("context", &context, &format!("if (!$this->buffer instanceof {read}) {{\n    throw new {error}('Action buffer must expose mutation state.');\n}}\n\nreturn {context}::of($this->buffer);")).document(doc("Read original and pending state without widening the action's writes.")));
             for f in list(&a["writes"]["fields"]) {
                 let f = &e["fields"][s(f)];
                 if !f.is_null() {

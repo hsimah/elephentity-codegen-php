@@ -84,6 +84,15 @@ try {
                 ? Verification::failed(new Violation('publishedAt.retained', 'Retain the first publication timestamp.')) : Verification::ok();
         }
     };
+    $container->services[RuntimeCheck\Page\Contract\PagePublishAction::class] = new class () implements RuntimeCheck\Page\Contract\PagePublishAction {
+        public function handle(RuntimeCheck\Page\PagePublishContext $context, DateTimeImmutable $at): void
+        {
+            $read = $context->context();
+            check($read->id()->isPersisted() && 'Page' === $read->entity(), 'Action read context lost identity.');
+            check(!method_exists($read, 'set') && !method_exists($read, 'setTitle') && !method_exists($context, 'setTitle'), 'Action exposes undeclared writes.');
+            $context->setStatus(Status::Published)->setPublishedAt($read->originalPublishedAt() ?? $read->pendingPublishedAt() ?? $at);
+        }
+    };
     $container->services[RuntimeCheck\Page\Contract\PageEnquiryUrlVerifier::class] = new class () implements RuntimeCheck\Page\Contract\PageEnquiryUrlVerifier {
         public function verify(?string $value, PageMutationContext $context): Verification
         {
@@ -184,7 +193,13 @@ try {
     }
     check($storage->count(Criteria::for('Page')) === $before, 'Rejected create inserted a row.');
     $at = new DateTimeImmutable('2026-10-10T12:00:00Z');
-    $runtime->update('Page', $result->id, ['status' => 'published', 'publishedAt' => $at]);
+    $later = $at->modify('+1 day');
+    $runtime->runActions('Page', $result->id, [new ActionCall('publish', ['at' => $at]), new ActionCall('publish', ['at' => $later])]);
+    check($runtime->find('Page', $result->id)->getPublishedAt() == $at, 'Repeat actions in one mutation lost the first timestamp.');
+    $runtime->runAction('Page', 'publish', $result->id, ['at' => $later]);
+    $runtime->update('Page', $result->id, ['status' => 'draft']);
+    $runtime->runAction('Page', 'publish', $result->id, ['at' => $later]);
+    check($runtime->find('Page', $result->id)->getPublishedAt() == $at, 'Republishing overwrote the original timestamp.');
     check($runtime->runQuery('Page', 'bySlug', ['slug' => 'visible']) instanceof Page, 'Found singular query failed.');
     try {
         $runtime->update('Page', $result->id, ['publishedAt' => null]);

@@ -155,6 +155,11 @@ impl Source {
             _ => self.class.generate(Indentation::default(), 0),
         };
         body.push_str(&printed);
+        let body = body
+            .split('\n')
+            .map(|line| line.trim_end_matches([' ', '\t']))
+            .collect::<Vec<_>>()
+            .join("\n");
         json!({"path": format!("{}.php", self.fq.strip_prefix(&format!("{}\\", root.trim_matches('\\'))).unwrap().replace('\\', "/")), "body": body})
     }
 }
