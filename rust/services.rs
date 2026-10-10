@@ -505,8 +505,15 @@ mod tests {
     #[test]
     fn declared_enums_decode_without_a_processor() {
         let schema = json!({"types":{"Status":{"primitive":"string","values":["draft","published"],"hasProcessors":false}}});
-        let generator = Gen { schema: &schema, root: "Example".into(), types: "ExampleType".into() };
+        let generator = Gen {
+            schema: &schema,
+            root: "Example".into(),
+            types: "ExampleType".into(),
+        };
         let reference = json!({"primitive":null,"declaredType":"Status"});
-        assert_eq!(generator.decode(&reference, "Status", "$value", "'Item.status'"), "$this->decode->enum(Status::class, $value, 'Item.status')");
+        assert_eq!(
+            generator.decode(&reference, "Status", "$value", "'Item.status'"),
+            "$this->decode->enum(Status::class, $value, 'Item.status')"
+        );
     }
 }
