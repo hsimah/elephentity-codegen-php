@@ -27,12 +27,19 @@ impl Gen<'_> {
         let primitive = s(&r["primitive"]);
         if primitive.is_empty() {
             let n = s(&r["declaredType"]);
-            let backing = s(&self.schema["types"][n]["primitive"]);
-            format!(
-                "$this->{}Reader->read({})",
-                low(n),
+            let declared = &self.schema["types"][n];
+            let backing = s(&declared["primitive"]);
+            if !declared["values"].is_null() {
+                decode_primitive("enum", ty, value, label)
+            } else if b(&declared["hasProcessors"]) {
+                format!(
+                    "$this->{}Reader->read({})",
+                    low(n),
+                    decode_primitive(backing, ty, value, label)
+                )
+            } else {
                 decode_primitive(backing, ty, value, label)
-            )
+            }
         } else {
             decode_primitive(primitive, ty, value, label)
         }
@@ -489,5 +496,17 @@ fn decode_primitive(p: &str, ty: &str, value: &str, label: &str) -> String {
                 p
             }
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn declared_enums_decode_without_a_processor() {
+        let schema = json!({"types":{"Status":{"primitive":"string","values":["draft","published"],"hasProcessors":false}}});
+        let generator = Gen { schema: &schema, root: "Example".into(), types: "ExampleType".into() };
+        let reference = json!({"primitive":null,"declaredType":"Status"});
+        assert_eq!(generator.decode(&reference, "Status", "$value", "'Item.status'"), "$this->decode->enum(Status::class, $value, 'Item.status')");
     }
 }
